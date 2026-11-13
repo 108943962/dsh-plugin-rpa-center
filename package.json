@@ -1,0 +1,44 @@
+{
+  "name": "dsh-plugin-rpa-center",
+  "version": "1.3.0",
+  "type": "module",
+  "description": "RPA 中心：拼多多推广/订单/财务/账户余额等日常自动化的统一入口（DSH 左侧栏面板，作业 × 店铺）。",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "tools"
+  ],
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "rpa",
+    "pinduoduo",
+    "automation"
+  ]
+}

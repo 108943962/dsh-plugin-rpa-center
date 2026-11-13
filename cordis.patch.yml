@@ -1,0 +1,4 @@
+# rpa-center —— cordis 挂载补丁
+- insert:
+    - id: rpa-center
+      name: "dsh-plugin-rpa-center"
