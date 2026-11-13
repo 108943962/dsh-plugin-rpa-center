@@ -124,6 +124,7 @@ GET 方式把 `storeId/task/start/end` 拼进 URL。只接受 `http(s)` 地址�
 - 到点时**逐条顺序执行**（同一时刻到点的多条规则不会并发开一堆浏览器）
 - 状态按规则分开存 `~/.dsh/rpa-center/schedule-state.json`（`rules.<id>.lastRunDate / lastRunAt / lastResult`），不改 `config.json`
 - 每条规则的「上次 11-13 08:01（成功 6 / 失败 0）」直接显示在规则行里；卡片标题显示「定时 2 条（下次 11-14 08:00）」
+- 「立即执行」「删除」都是**二次确认**：第一下只变成「确认执行？/ 确认删除？」，3 秒内再点才真的执行，不点会自动取消
 - 运行记录里带 `trigger`：`manual` / `schedule` / `schedule-manual`
 - 老配置里那条单规则会自动升级成第一条规则（id `rule-1`），不用手改
 

@@ -15,8 +15,10 @@ mod.apply({
   },
 });
 
+window.__fetches = [];
 window.fetch = async (url) => {
   const u = String(url);
+  window.__fetches.push(u);
   if (u.includes('/rpa/state')) return { ok: true, json: async () => STATE, text: async () => JSON.stringify(STATE) };
   return { ok: true, json: async () => ({ ok: true, runs: [] }), text: async () => '{"ok":true}' };
 };

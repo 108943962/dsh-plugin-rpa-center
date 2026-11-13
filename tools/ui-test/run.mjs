@@ -80,6 +80,23 @@ try {
   await s.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, 3000).catch(() => {});
   expect('点店铺下拉不会折叠', await folds(), planOpen);
 
+  // 立即执行要二次确认：第一下只变成「确认执行？」，第二下才真跑
+  await sleep(3200);   // 等前面那次点击的确认态过期
+  const runBtn = `document.querySelector('details[data-fold="plan"] summary button')`;
+  const runCalls = () => ev(`(window.__fetches || []).filter(u => u.includes('/rpa/schedule-run')).length`);
+  const beforeRun = await runCalls();
+  await click(runBtn);
+  expect('第一下「立即执行」只改文案', await ev(`${runBtn}.textContent`), '确认执行？');
+  expect('第一下不会真跑', await runCalls(), beforeRun);
+  await click(runBtn);
+  expect('第二下才真跑', await runCalls(), beforeRun + 1);
+  expect('跑完按钮恢复', await ev(`${runBtn}.textContent`), '立即执行');
+
+  await click(runBtn);
+  expect('再点一次进入确认态', await ev(`${runBtn}.textContent`), '确认执行？');
+  await sleep(3400);
+  expect('3 秒不点自动取消', await ev(`${runBtn}.textContent`), '立即执行');
+
 } catch (err) {
   console.error('✗ 执行出错：', err && err.message ? err.message : err);
   bad += 1;
