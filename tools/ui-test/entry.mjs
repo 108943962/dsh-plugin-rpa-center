@@ -15,9 +15,9 @@ mod.apply({
   },
 });
 
-// 加 ?gate=1 时模拟「未登录途阳」，用来测登录门槛
+// 加 ?gate=1 时模拟「未登录（部署方要求登录）」，用来测登录门槛
 const STATE_VIEW = new URLSearchParams(location.search).has('gate')
-  ? { ...STATE, gate: { enabled: true, enforced: true, loggedIn: false, reason: 'not-logged-in', title: '需要先登录途阳', message: '点右上角「登录途阳」完成登录', user: null } }
+  ? { ...STATE, gate: { enabled: true, enforced: true, loggedIn: false, reason: 'not-logged-in', title: '需要先登录示例系统', message: '点右上角完成登录', user: null } }
   : STATE;
 
 window.__fetches = [];

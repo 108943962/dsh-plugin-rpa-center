@@ -171,16 +171,16 @@ try {
   const missing = gate.resolveGate({ gate: { enabled: true, statusFile: gateFile } });
   check('启用了但状态文件缺失 → 不拦（fail-open）', missing.enforced === false && missing.reason === 'status-missing');
 
-  fsx.writeFileSync(gateFile, JSON.stringify({ enforced: true, loggedIn: false, title: '需要先登录途阳', message: '点右上角登录', reason: 'no-token' }));
+  fsx.writeFileSync(gateFile, JSON.stringify({ enforced: true, loggedIn: false, title: '需要先登录示例系统', message: '点右上角完成登录', reason: 'no-token' }));
   const blocked = gate.resolveGate({ gate: { enabled: true, statusFile: gateFile } });
-  check('状态文件说未登录 → 拦住，并带上部署方的文案', blocked.enforced === true && blocked.loggedIn === false && blocked.title === '需要先登录途阳' && blocked.message === '点右上角登录');
+  check('状态文件说未登录 → 拦住，并带上部署方的文案', blocked.enforced === true && blocked.loggedIn === false && blocked.title === '需要先登录示例系统' && blocked.message === '点右上角完成登录');
 
   fsx.writeFileSync(gateFile, JSON.stringify({ enforced: true, loggedIn: true, user: { name: '张三', id: 'u1' } }));
   const okGate = gate.resolveGate({ gate: { enabled: true, statusFile: gateFile } });
   check('登录后放行并给出用户名', okGate.enforced === true && okGate.loggedIn === true && okGate.user.name === '张三');
 
   await call('POST', '/rpa/config', { gate: { enabled: true, statusFile: gateFile }, push: { enabled: false, url: '' } });
-  fsx.writeFileSync(gateFile, JSON.stringify({ enforced: true, loggedIn: false, title: '需要先登录途阳' }));
+  fsx.writeFileSync(gateFile, JSON.stringify({ enforced: true, loggedIn: false, title: '需要先登录示例系统' }));
   const runBlocked = await call('POST', '/rpa/run', { storeId: 'x', jobs: ['bill_guonei'] });
   check('未登录时 /run 被拒（401）', runBlocked.ok === false && runBlocked.code === 'LOGIN_REQUIRED', runBlocked.error || '');
   const stateBlocked = await call('GET', '/rpa/state');

@@ -103,7 +103,7 @@ try {
   try {
     await sleep(1500);
     const gv = (e) => gs.evaluate(e, 20000);
-    expect('未登录时显示登录提示', await gv(`(document.body.innerText || '').includes('需要先登录途阳')`), true);
+    expect('未登录时显示登录提示', await gv(`(document.body.innerText || '').includes('需要先登录示例系统')`), true);
     expect('未登录时不显示作业列表', await gv(`document.querySelectorAll('.rpa-job').length`), 0);
     expect('未登录时不显示运行计划', await gv(`!!document.querySelector('details[data-fold="plan"]')`), false);
   } finally {
