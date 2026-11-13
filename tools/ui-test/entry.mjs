@@ -15,11 +15,16 @@ mod.apply({
   },
 });
 
+// 加 ?gate=1 时模拟「未登录途阳」，用来测登录门槛
+const STATE_VIEW = new URLSearchParams(location.search).has('gate')
+  ? { ...STATE, auth: { mode: 'required', enforced: true, loggedIn: false, reason: 'no-token-file', user: null } }
+  : STATE;
+
 window.__fetches = [];
 window.fetch = async (url) => {
   const u = String(url);
   window.__fetches.push(u);
-  if (u.includes('/rpa/state')) return { ok: true, json: async () => STATE, text: async () => JSON.stringify(STATE) };
+  if (u.includes('/rpa/state')) return { ok: true, json: async () => STATE_VIEW, text: async () => JSON.stringify(STATE_VIEW) };
   return { ok: true, json: async () => ({ ok: true, runs: [] }), text: async () => '{"ok":true}' };
 };
 

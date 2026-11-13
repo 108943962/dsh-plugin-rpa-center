@@ -97,6 +97,20 @@ try {
   await sleep(3400);
   expect('3 秒不点自动取消', await ev(`${runBtn}.textContent`), '立即执行');
 
+  // 登录门槛：模拟未登录时，只应该有登录提示卡，没有作业
+  const gate = await newPage(PORT, `file://${dir}index.html?gate=1`);
+  const gs = new Session(gate.webSocketDebuggerUrl);
+  try {
+    await sleep(1500);
+    const gv = (e) => gs.evaluate(e, 20000);
+    expect('未登录时显示登录提示', await gv(`(document.body.innerText || '').includes('需要先登录途阳')`), true);
+    expect('未登录时不显示作业列表', await gv(`document.querySelectorAll('.rpa-job').length`), 0);
+    expect('未登录时不显示运行计划', await gv(`!!document.querySelector('details[data-fold="plan"]')`), false);
+  } finally {
+    gs.close();
+    await closePage(PORT, gate.id).catch(() => {});
+  }
+
 } catch (err) {
   console.error('✗ 执行出错：', err && err.message ? err.message : err);
   bad += 1;

@@ -159,6 +159,35 @@ try {
   await cdp.sleep(30);
   check('清掉标记后恢复正常', cdp.isAbortRequested() === false);
 
+  // 登录门槛：途阳 token 文件决定 enforced / loggedIn
+  const auth = await import('../lib/auth.mjs');
+  const fsx = await import('node:fs');
+  const pathx = await import('node:path');
+  const tokenFile = pathx.join(process.env.DSH_HOME, 'tuyang-mcp-token.json');
+  const off = auth.resolveAuth({ auth: { required: false } });
+  check('required=false 时不启用门槛', off.enforced === false && off.loggedIn === true);
+  const required = auth.resolveAuth({ auth: { required: true } });
+  check('required=true 且没有 token → 要求登录', required.enforced === true && required.loggedIn === false, required.reason);
+  fsx.writeFileSync(tokenFile, JSON.stringify({ version: 1, activeUserId: 'u1', accounts: { u1: { id: 'u1', name: '张三', accessToken: 't', expiresAt: 0 } } }));
+  const logged = auth.resolveAuth({ auth: { required: true } });
+  check('有 token → 视为已登录并给出账号名', logged.enforced === true && logged.loggedIn === true && logged.user.name === '张三');
+  fsx.writeFileSync(tokenFile, JSON.stringify({ version: 1, accounts: { u2: { id: 'u2', accessToken: 't', expiresAt: Date.now() - 1000 } } }));
+  const expired = auth.resolveAuth({ auth: { required: true } });
+  check('token 过期 → 要求重新登录', expired.loggedIn === false && expired.reason === 'token-expired');
+  fsx.rmSync(tokenFile, { force: true });
+
+  // 接口门禁：要求登录且未登录时，/run 必须 401
+  await call('POST', '/rpa/config', { auth: { required: true }, push: { enabled: false, url: '' } });
+  const blocked = await call('POST', '/rpa/run', { storeId: 'x', jobs: ['bill_guonei'] });
+  check('未登录时 /run 被拒（401）', blocked.ok === false && blocked.code === 'LOGIN_REQUIRED', blocked.error || '');
+  const stateAuth = await call('GET', '/rpa/state');
+  check('/state 带 auth 且为未登录', stateAuth.auth && stateAuth.auth.enforced === true && stateAuth.auth.loggedIn === false);
+  fsx.writeFileSync(tokenFile, JSON.stringify({ version: 1, activeUserId: 'u1', accounts: { u1: { id: 'u1', name: '张三', accessToken: 't' } } }));
+  const stateAuth2 = await call('GET', '/rpa/state');
+  check('登录后 /state 变成已登录', stateAuth2.auth.loggedIn === true && stateAuth2.auth.user.name === '张三');
+  fsx.rmSync(tokenFile, { force: true });
+  await call('POST', '/rpa/config', { auth: { required: false } });
+
   // 坏 URL 不该被收进配置（只允许 http/https）
   const badPush = await call('POST', '/rpa/config', { pushes: {}, push: { enabled: true, url: 'file:///etc/passwd' } });
   check('file:// 推送地址被拒收', badPush.config.push.url === '');

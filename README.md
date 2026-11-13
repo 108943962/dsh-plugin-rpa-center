@@ -142,6 +142,35 @@ GET 方式把 `storeId/task/start/end` 拼进 URL。只接受 `http(s)` 地址�
 
 接口：`POST /rpa/stop`（无需参数）。下次开始运行会自动清掉停止标记，不用手动恢复。
 
+## 登录门槛（只有登录途阳之后才显示）
+
+给「途阳jiajia」这种交付场景用：**未登录途阳时，RPA 中心只显示一张提示卡**，作业列表、运行计划、店铺、最近运行全都不出现；
+定时任务也不会在未登录状态下跑。
+
+- 登录态来自 `@tuyang/ptc-suite` 写在本机的 token 文件：`<DSH_HOME>/tuyang-mcp-token.json`
+  （可用环境变量 `PTC_MCP_TOKEN_FILE` 或 `config.auth.tokenFile` 改路径）
+- 判断只看「有没有可用账号、有没有过期」，不读 token 内容、不联网校验
+- 未登录时页面每 10 秒自己刷一次状态，登录成功后作业列表自动出现（不用手动刷新）
+- 接口层同样拦：`/rpa/run`、`/rpa/run-all`、`/rpa/schedule-run`、`/rpa/open` 未登录返回 **401 `LOGIN_REQUIRED`**
+
+三档配置（`config.auth.required`）：
+
+| 值 | 行为 |
+|---|---|
+| `false` | 不启用门槛（插件保持通用） |
+| `"auto"`（默认） | 本机确实部署了 ptc-suite（token 文件或 `tuyang-mcp.json` 存在）才启用 |
+| `true` | 一律要求登录（产品交付用这个） |
+
+交付包里这么配（`mac/templates/profile/cordis.patch.yml`）：
+
+```yaml
+- id: rpa-center
+  name: "dsh-plugin-rpa-center"
+  config:
+    auth:
+      required: true
+```
+
 ## 已知边界
 
 - 订单批量导出有 **5 分钟间隔**（站点限制）；5 分钟内重复跑会下载「最近一份」，`extra.reportTime` 里记录它的生成时间
