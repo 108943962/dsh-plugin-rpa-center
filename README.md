@@ -142,34 +142,34 @@ GET 方式把 `storeId/task/start/end` 拼进 URL。只接受 `http(s)` 地址�
 
 接口：`POST /rpa/stop`（无需参数）。下次开始运行会自动清掉停止标记，不用手动恢复。
 
-## 登录门槛（只有登录途阳之后才显示）
+## 可选：外部登录门槛（通用约定，不绑定任何登录系统）
 
-给「途阳jiajia」这种交付场景用：**未登录途阳时，RPA 中心只显示一张提示卡**，作业列表、运行计划、店铺、最近运行全都不出现；
-定时任务也不会在未登录状态下跑。
+有些交付场景要求「先登录才能看到作业」。RPA 中心**不认识任何具体登录系统**，
+它只认一个状态文件，由部署方自己写：
 
-- 登录态来自 `@tuyang/ptc-suite` 写在本机的 token 文件：`<DSH_HOME>/tuyang-mcp-token.json`
-  （可用环境变量 `PTC_MCP_TOKEN_FILE` 或 `config.auth.tokenFile` 改路径）
-- 判断只看「有没有可用账号、有没有过期」，不读 token 内容、不联网校验
-- 未登录时页面每 10 秒自己刷一次状态，登录成功后作业列表自动出现（不用手动刷新）
-- 接口层同样拦：`/rpa/run`、`/rpa/run-all`、`/rpa/schedule-run`、`/rpa/open` 未登录返回 **401 `LOGIN_REQUIRED`**
-
-三档配置（`config.auth.required`）：
-
-| 值 | 行为 |
-|---|---|
-| `false` | 不启用门槛（插件保持通用） |
-| `"auto"`（默认） | 本机确实部署了 ptc-suite（token 文件或 `tuyang-mcp.json` 存在）才启用 |
-| `true` | 一律要求登录（产品交付用这个） |
-
-交付包里这么配（`mac/templates/profile/cordis.patch.yml`）：
-
-```yaml
-- id: rpa-center
-  name: "dsh-plugin-rpa-center"
-  config:
-    auth:
-      required: true
 ```
+<DSH_HOME>/rpa-center/gate.json          # 可用 config.gate.statusFile 或 RPA_GATE_STATUS_FILE 覆盖
+{
+  "enforced": true,                      // 这个部署要不要拦
+  "loggedIn": false,                     // 当前有没有登录
+  "user": { "name": "张三" },             // 可选：登录后显示在副标题
+  "reason": "no-account",                // 可选：排障用
+  "title": "需要先登录途阳",               // 可选：提示卡标题
+  "message": "点右上角「登录途阳」…"        // 可选：提示卡正文
+}
+```
+
+开关：`config.gate.enabled = true` 才读这个文件（默认关闭，不写这个文件就等于没有门槛）。
+文件缺失/读不出来时**放行**（fail-open）：门槛是体验约束，不该把用户锁在门外。
+
+启用后：
+
+- 未登录：面板只显示一张提示卡（标题/正文取状态文件里的 `title`/`message`），作业列表、运行计划、店铺、最近运行都不出现；页面每 10 秒自动刷新，登录成功后作业列表自动出现
+- 接口层同样拦：`/rpa/run`、`/rpa/run-all`、`/rpa/schedule-run`、`/rpa/open` 返回 **401 `LOGIN_REQUIRED`**
+- 定时任务在未登录时不跑
+
+**示例：途阳jiajia**。`ptc-suite` 每 5 秒把途阳登录态写进这个文件（`ptc-suite/gate-sync.mjs`），
+交付包的 `cordis.patch.yml` 里给 rpa-center 打开 `gate.enabled: true` 即可——RPA 中心本身完全不知道「途阳」的存在。
 
 ## 已知边界
 

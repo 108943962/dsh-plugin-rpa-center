@@ -159,34 +159,37 @@ try {
   await cdp.sleep(30);
   check('清掉标记后恢复正常', cdp.isAbortRequested() === false);
 
-  // 登录门槛：途阳 token 文件决定 enforced / loggedIn
-  const auth = await import('../lib/auth.mjs');
+  // 外部登录门槛：部署方写 gate.json，插件只读
+  const gate = await import('../lib/gate.mjs');
   const fsx = await import('node:fs');
   const pathx = await import('node:path');
-  const tokenFile = pathx.join(process.env.DSH_HOME, 'tuyang-mcp-token.json');
-  const off = auth.resolveAuth({ auth: { required: false } });
-  check('required=false 时不启用门槛', off.enforced === false && off.loggedIn === true);
-  const required = auth.resolveAuth({ auth: { required: true } });
-  check('required=true 且没有 token → 要求登录', required.enforced === true && required.loggedIn === false, required.reason);
-  fsx.writeFileSync(tokenFile, JSON.stringify({ version: 1, activeUserId: 'u1', accounts: { u1: { id: 'u1', name: '张三', accessToken: 't', expiresAt: 0 } } }));
-  const logged = auth.resolveAuth({ auth: { required: true } });
-  check('有 token → 视为已登录并给出账号名', logged.enforced === true && logged.loggedIn === true && logged.user.name === '张三');
-  fsx.writeFileSync(tokenFile, JSON.stringify({ version: 1, accounts: { u2: { id: 'u2', accessToken: 't', expiresAt: Date.now() - 1000 } } }));
-  const expired = auth.resolveAuth({ auth: { required: true } });
-  check('token 过期 → 要求重新登录', expired.loggedIn === false && expired.reason === 'token-expired');
-  fsx.rmSync(tokenFile, { force: true });
+  const gateFile = pathx.join(process.env.DSH_HOME, 'rpa-center', 'gate.json');
+  fsx.mkdirSync(pathx.dirname(gateFile), { recursive: true });
 
-  // 接口门禁：要求登录且未登录时，/run 必须 401
-  await call('POST', '/rpa/config', { auth: { required: true }, push: { enabled: false, url: '' } });
-  const blocked = await call('POST', '/rpa/run', { storeId: 'x', jobs: ['bill_guonei'] });
-  check('未登录时 /run 被拒（401）', blocked.ok === false && blocked.code === 'LOGIN_REQUIRED', blocked.error || '');
-  const stateAuth = await call('GET', '/rpa/state');
-  check('/state 带 auth 且为未登录', stateAuth.auth && stateAuth.auth.enforced === true && stateAuth.auth.loggedIn === false);
-  fsx.writeFileSync(tokenFile, JSON.stringify({ version: 1, activeUserId: 'u1', accounts: { u1: { id: 'u1', name: '张三', accessToken: 't' } } }));
-  const stateAuth2 = await call('GET', '/rpa/state');
-  check('登录后 /state 变成已登录', stateAuth2.auth.loggedIn === true && stateAuth2.auth.user.name === '张三');
-  fsx.rmSync(tokenFile, { force: true });
-  await call('POST', '/rpa/config', { auth: { required: false } });
+  const off = gate.resolveGate({ gate: { enabled: false } });
+  check('没启用门槛时一律放行', off.enforced === false && off.loggedIn === true);
+  const missing = gate.resolveGate({ gate: { enabled: true, statusFile: gateFile } });
+  check('启用了但状态文件缺失 → 不拦（fail-open）', missing.enforced === false && missing.reason === 'status-missing');
+
+  fsx.writeFileSync(gateFile, JSON.stringify({ enforced: true, loggedIn: false, title: '需要先登录途阳', message: '点右上角登录', reason: 'no-token' }));
+  const blocked = gate.resolveGate({ gate: { enabled: true, statusFile: gateFile } });
+  check('状态文件说未登录 → 拦住，并带上部署方的文案', blocked.enforced === true && blocked.loggedIn === false && blocked.title === '需要先登录途阳' && blocked.message === '点右上角登录');
+
+  fsx.writeFileSync(gateFile, JSON.stringify({ enforced: true, loggedIn: true, user: { name: '张三', id: 'u1' } }));
+  const okGate = gate.resolveGate({ gate: { enabled: true, statusFile: gateFile } });
+  check('登录后放行并给出用户名', okGate.enforced === true && okGate.loggedIn === true && okGate.user.name === '张三');
+
+  await call('POST', '/rpa/config', { gate: { enabled: true, statusFile: gateFile }, push: { enabled: false, url: '' } });
+  fsx.writeFileSync(gateFile, JSON.stringify({ enforced: true, loggedIn: false, title: '需要先登录途阳' }));
+  const runBlocked = await call('POST', '/rpa/run', { storeId: 'x', jobs: ['bill_guonei'] });
+  check('未登录时 /run 被拒（401）', runBlocked.ok === false && runBlocked.code === 'LOGIN_REQUIRED', runBlocked.error || '');
+  const stateBlocked = await call('GET', '/rpa/state');
+  check('/state 带 gate 且为未登录', stateBlocked.gate && stateBlocked.gate.enforced === true && stateBlocked.gate.loggedIn === false);
+  fsx.writeFileSync(gateFile, JSON.stringify({ enforced: true, loggedIn: true, user: { name: '张三' } }));
+  const stateOk = await call('GET', '/rpa/state');
+  check('登录后 /state 放行', stateOk.gate.loggedIn === true && stateOk.gate.user.name === '张三');
+  fsx.rmSync(gateFile, { force: true });
+  await call('POST', '/rpa/config', { gate: { enabled: false, statusFile: '' } });
 
   // 坏 URL 不该被收进配置（只允许 http/https）
   const badPush = await call('POST', '/rpa/config', { pushes: {}, push: { enabled: true, url: 'file:///etc/passwd' } });
