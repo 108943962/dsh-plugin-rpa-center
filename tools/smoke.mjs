@@ -144,6 +144,21 @@ try {
   check('两条到点的规则各触发一次（未启用的不跑）', fired.length === 2 && fired.includes('r1') && fired.includes('r2') && !fired.includes('r3'), fired.join(','));
   check('每条规则各自记录 lastRunDate/lastResult', st.rules.r1 && st.rules.r1.lastRunDate === todayKey && st.rules.r2 && st.rules.r2.lastRunDate === todayKey);
 
+  // 手动停止：/state 有 running 标记；/stop 会置上取消标记
+  const cdp = await import('../lib/engine/cdp.mjs');
+  const s4 = await call('GET', '/rpa/state');
+  check('/state 带 running 标记', typeof s4.running === 'boolean', String(s4.running));
+  cdp.clearAbort();
+  const stopped = await call('POST', '/rpa/stop', {});
+  check('POST /rpa/stop 返回 ok', stopped.ok === true);
+  check('停止标记已置上', cdp.isAbortRequested() === true);
+  let aborted = false;
+  try { await cdp.sleep(3000); } catch (err) { aborted = err.code === 'CANCELLED'; }
+  check('标记置上后 sleep 会抛出 CANCELLED（作业能被打断）', aborted === true);
+  cdp.clearAbort();
+  await cdp.sleep(30);
+  check('清掉标记后恢复正常', cdp.isAbortRequested() === false);
+
   // 坏 URL 不该被收进配置（只允许 http/https）
   const badPush = await call('POST', '/rpa/config', { pushes: {}, push: { enabled: true, url: 'file:///etc/passwd' } });
   check('file:// 推送地址被拒收', badPush.config.push.url === '');
