@@ -183,6 +183,10 @@ try {
   fsx.writeFileSync(gateFile, JSON.stringify({ enforced: true, loggedIn: false, title: '需要先登录示例系统' }));
   const runBlocked = await call('POST', '/rpa/run', { storeId: 'x', jobs: ['bill_guonei'] });
   check('未登录时 /run 被拒（401）', runBlocked.ok === false && runBlocked.code === 'LOGIN_REQUIRED', runBlocked.error || '');
+  const runAllBlocked = await call('POST', '/rpa/run-all', {});
+  check('未登录时 /run-all 也被拒（401）', runAllBlocked.ok === false && runAllBlocked.code === 'LOGIN_REQUIRED', runAllBlocked.error || '');
+  const openBlocked = await call('POST', '/rpa/open', { storeId: 'x' });
+  check('未登录时 /open 也被拒（401）', openBlocked.ok === false && openBlocked.code === 'LOGIN_REQUIRED', openBlocked.error || '');
   const stateBlocked = await call('GET', '/rpa/state');
   check('/state 带 gate 且为未登录', stateBlocked.gate && stateBlocked.gate.enforced === true && stateBlocked.gate.loggedIn === false);
   fsx.writeFileSync(gateFile, JSON.stringify({ enforced: true, loggedIn: true, user: { name: '张三' } }));
