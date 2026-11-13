@@ -28,6 +28,11 @@ await call('POST', '/rpa/config', {
   chromePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   stores: [{ name: '测试店铺', port: 9222 }],
   push: { enabled: false, url: '' },
+  schedule: { rules: [
+    { id: 'r1', name: '早间账单', enabled: true, time: '08:00', days: [1, 2, 3, 4, 5], jobs: ['bill_guonei', 'finance_month'], catchUp: true },
+    { id: 'r2', name: '午间推广', enabled: true, time: '12:30', days: [0, 1, 2, 3, 4, 5, 6], jobs: [], catchUp: false },
+    { id: 'r3', name: '周末订单', enabled: false, time: '09:00', days: [0, 6], jobs: ['order_guonei'], catchUp: true },
+  ] },
 });
 const state = await call('GET', '/rpa/state');
 fs.writeFileSync(new URL('./state.json', import.meta.url), JSON.stringify(state));

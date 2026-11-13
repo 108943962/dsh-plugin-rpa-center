@@ -73,9 +73,8 @@ try {
   await click(`Array.from(document.querySelectorAll('details[data-fold="plan"] button')).find(b => b.textContent === '全选')`);
   expect('点「全选」不会折叠卡片', await folds(), planOpen);
 
-  await click(`document.querySelector('details[data-fold="plan"] input[type="time"]')`);
-  await s.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, 3000).catch(() => {});
-  expect('点时间输入框不会折叠卡片', await folds(), planOpen);
+  await click(`Array.from(document.querySelectorAll('details[data-fold="plan"] button')).find(b => b.textContent === '＋ 添加任务')`);
+  expect('点「添加任务」不会折叠卡片', await folds(), planOpen);
 
   await click(`document.querySelector('details[data-fold="jobs"] summary select')`);
   await s.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, 3000).catch(() => {});

@@ -101,35 +101,48 @@ try {
   const ports = many.config.stores.map((x) => x.port);
   check('多家店铺自动分配不重复端口', new Set(ports).size === ports.length, ports.join(','));
 
-  // 定时任务：规则收口 + 到点判定 + 真的触发一次
+  // 定时任务：多条规则 + 到点判定 + 真的触发
   const sched = await import('../lib/schedule.mjs');
-  const st0 = sched.normalizeSchedule({});
-  check('定时默认关闭且时间合法', st0.enabled === false && /^\d{2}:\d{2}$/.test(st0.time), st0.time);
-  check('时间补零（7:5 → 07:05）', sched.normalizeSchedule({ time: '7:5' }).time === '07:05');
-  const today = new Date();
-  const hhmm = `${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
-  const due = sched.normalizeSchedule({ enabled: true, time: hhmm, days: [today.getDay()] });
-  check('到点 + 今天没跑过 → 该跑', sched.shouldRun(due, '').run === true);
-  check('今天已跑过 → 不再跑', sched.shouldRun(due, today.toISOString().slice(0, 10)).reason === 'already-ran-today');
-  check('不在勾选的星期 → 不跑', sched.shouldRun(sched.normalizeSchedule({ enabled: true, time: hhmm, days: [(today.getDay() + 1) % 7] }), '').reason === 'not-a-scheduled-day');
-  check('关掉就不跑', sched.shouldRun(sched.normalizeSchedule({ enabled: false }), '').reason === 'disabled');
-  check('能给下次运行时间', typeof sched.nextRunAt(due) === 'string');
+  check('空配置没有规则', sched.normalizeRules({}).length === 0);
+  const migrated = sched.normalizeRules({ enabled: true, time: '7:5', jobs: ['bill_guonei'] });
+  check('老的单条配置自动升级成一条规则', migrated.length === 1 && migrated[0].time === '07:05', JSON.stringify(migrated[0] && migrated[0].time));
+  const two = sched.normalizeRules({ rules: [{ name: '账单', enabled: true, time: '08:00' }, { name: '推广', enabled: true, time: '12:30', days: [1, 2] }, {}] });
+  check('支持多条规则', two.length === 3 && two[0].name === '账单' && two[2].name === '任务 3');
+  check('规则 id 不重复', new Set(two.map((r) => r.id)).size === two.length);
 
-  // 真跑一遍 tick：把时间设成 1 分钟前，等 6 秒看状态文件有没有落下
+  const today = new Date();
+  const todayKey = today.toISOString().slice(0, 10);
+  const hhmm = `${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
+  const due = sched.normalizeRule({ enabled: true, time: hhmm, days: [today.getDay()] });
+  check('到点 + 今天没跑过 → 该跑', sched.shouldRun(due, '').run === true);
+  check('今天已跑过 → 不再跑', sched.shouldRun(due, todayKey).reason === 'already-ran-today');
+  check('不在勾选的星期 → 不跑', sched.shouldRun(sched.normalizeRule({ enabled: true, time: hhmm, days: [(today.getDay() + 1) % 7] }), '').reason === 'not-a-scheduled-day');
+  check('关掉就不跑', sched.shouldRun(sched.normalizeRule({ enabled: false }), '').reason === 'disabled');
+  const next = sched.nextRunAt({ rules: [sched.normalizeRule({ enabled: true, time: '23:59' })] });
+  check('能给下次运行时间', typeof next === 'string', next || '');
+
+  // 真跑一遍 tick：两条规则都到点，应该各跑一次
   const past = new Date(Date.now() - 60000);
+  const pastHHMM = `${String(past.getHours()).padStart(2, '0')}:${String(past.getMinutes()).padStart(2, '0')}`;
   await call('POST', '/rpa/config', {
     source: 'local',
     stores: [{ name: '定时测试店', port: 9333 }],
     push: { enabled: false, url: '' },
-    schedule: { enabled: true, time: `${String(past.getHours()).padStart(2, '0')}:${String(past.getMinutes()).padStart(2, '0')}`, days: [today.getDay()], jobs: ['bill_guonei'] },
+    schedule: {
+      rules: [
+        { id: 'r1', name: '规则一', enabled: true, time: pastHHMM, days: [today.getDay()], jobs: ['bill_guonei'] },
+        { id: 'r2', name: '规则二', enabled: true, time: pastHHMM, days: [today.getDay()], jobs: ['bill_guowai'] },
+        { id: 'r3', name: '没开', enabled: false, time: pastHHMM, days: [today.getDay()] },
+      ],
+    },
   });
-  let fired = 0;
-  const stop = sched.startScheduler({ runJobs: async () => { fired += 1; return [{ runs: [{ ok: true }, { ok: false }] }]; }, intervalMs: 5000, log: () => {} });
+  let fired = [];
+  const stop = sched.startScheduler({ runJobs: async (rule) => { fired.push(rule.id); return [{ runs: [{ ok: true }] }]; }, intervalMs: 5000, log: () => {} });
   await new Promise((r) => setTimeout(r, 6500));
   stop();
   const st = sched.readScheduleState();
-  check('到点会真的触发一次', fired === 1, `fired=${fired}`);
-  check('触发后记录 lastRunDate/lastResult', st.lastRunDate === today.toISOString().slice(0, 10) && st.lastResult && st.lastResult.ok === 1);
+  check('两条到点的规则各触发一次（未启用的不跑）', fired.length === 2 && fired.includes('r1') && fired.includes('r2') && !fired.includes('r3'), fired.join(','));
+  check('每条规则各自记录 lastRunDate/lastResult', st.rules.r1 && st.rules.r1.lastRunDate === todayKey && st.rules.r2 && st.rules.r2.lastRunDate === todayKey);
 
   // 坏 URL 不该被收进配置（只允许 http/https）
   const badPush = await call('POST', '/rpa/config', { pushes: {}, push: { enabled: true, url: 'file:///etc/passwd' } });
