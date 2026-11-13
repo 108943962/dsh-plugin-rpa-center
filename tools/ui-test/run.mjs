@@ -35,8 +35,14 @@ const expect = (name, got, want) => {
 };
 
 try {
+  // 清掉上次留下的折叠状态并等面板真的重新渲染好（reload 是异步的，等太久/太早都会误判）
   await ev('localStorage.clear(); location.reload(); true');
-  await sleep(1800);
+  for (let i = 0; i < 40; i += 1) {
+    await sleep(200);
+    const ready = await ev(`document.readyState === 'complete' && !!document.querySelector('details[data-fold="jobs"]')`).catch(() => false);
+    if (ready) break;
+  }
+  await sleep(500);
   const base = await folds();
   expect('初始：全部展开（本次运行除外）', base, { pick: false, jobs: true, 'g:promotion': true, 'g:orders': true, 'g:finance': true, 'g:balance': true });
 
