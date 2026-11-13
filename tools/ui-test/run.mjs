@@ -28,6 +28,7 @@ const click = async (expr) => {
 };
 
 let bad = 0;
+const checkSame = (name, got, want) => expect(name, got, want);
 const expect = (name, got, want) => {
   const ok = JSON.stringify(got) === JSON.stringify(want);
   console.log(`${ok ? '✓' : '✗'} ${name}  ${JSON.stringify(got)}`);
@@ -44,7 +45,7 @@ try {
   }
   await sleep(500);
   const base = await folds();
-  expect('初始：全部展开（本次运行除外）', base, { pick: false, jobs: true, 'g:promotion': true, 'g:orders': true, 'g:finance': true, 'g:balance': true });
+  expect('初始：折叠的只有本次运行和定时任务', base, { pick: false, schedule: false, jobs: true, 'g:promotion': true, 'g:orders': true, 'g:finance': true, 'g:balance': true });
 
   await click(`document.querySelector('details[data-fold="g:orders"] summary span')`);
   const afterOrder = await folds();
@@ -63,6 +64,13 @@ try {
   expect('点作业目录只收目录', await folds(), { ...base, jobs: false });
 
   await click(`document.querySelector('details[data-fold="jobs"] summary b')`);
+  await click(`document.querySelector('details[data-fold="schedule"] summary b')`);
+  const schedOpen = await folds();
+  checkSame('点「定时任务」能展开', schedOpen, { ...base, schedule: true });
+  await click(`document.querySelector('details[data-fold="schedule"] summary button')`);
+  checkSame('点「立即执行」不会把卡片折叠', await folds(), schedOpen);
+  await click(`document.querySelector('details[data-fold="schedule"] summary b')`);
+
   await click(`document.querySelector('details[data-fold="pick"] summary b')`);
   const pickOpen = await folds();
   await click(`Array.from(document.querySelectorAll('details[data-fold="pick"] summary button')).find(b => b.textContent === '全选')`);
