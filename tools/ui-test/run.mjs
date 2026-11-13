@@ -45,11 +45,10 @@ try {
   }
   await sleep(500);
   const base = await folds();
-  expect('初始：折叠的只有本次运行和定时任务', base, { pick: false, schedule: false, jobs: true, 'g:promotion': true, 'g:orders': true, 'g:finance': true, 'g:balance': true });
+  expect('初始：折叠的只有运行计划', base, { plan: false, jobs: true, 'g:promotion': true, 'g:orders': true, 'g:finance': true, 'g:balance': true });
 
   await click(`document.querySelector('details[data-fold="g:orders"] summary span')`);
-  const afterOrder = await folds();
-  expect('点「订单」只收订单，外层不跟着收', afterOrder, { ...base, 'g:orders': false });
+  expect('点「订单」只收订单，外层不跟着收', await folds(), { ...base, 'g:orders': false });
 
   await click(`document.querySelector('details[data-fold="g:orders"] summary span')`);
   expect('再点一次恢复展开', await folds(), base);
@@ -64,21 +63,24 @@ try {
   expect('点作业目录只收目录', await folds(), { ...base, jobs: false });
 
   await click(`document.querySelector('details[data-fold="jobs"] summary b')`);
-  await click(`document.querySelector('details[data-fold="schedule"] summary b')`);
-  const schedOpen = await folds();
-  checkSame('点「定时任务」能展开', schedOpen, { ...base, schedule: true });
-  await click(`document.querySelector('details[data-fold="schedule"] summary button')`);
-  checkSame('点「立即执行」不会把卡片折叠', await folds(), schedOpen);
-  await click(`document.querySelector('details[data-fold="schedule"] summary b')`);
+  await click(`document.querySelector('details[data-fold="plan"] summary b')`);
+  const planOpen = await folds();
+  expect('点「运行计划」能展开', planOpen, { ...base, plan: true });
 
-  await click(`document.querySelector('details[data-fold="pick"] summary b')`);
-  const pickOpen = await folds();
-  await click(`Array.from(document.querySelectorAll('details[data-fold="pick"] summary button')).find(b => b.textContent === '全选')`);
-  expect('点摘要里的「全选」不会折叠', await folds(), pickOpen);
+  await click(`document.querySelector('details[data-fold="plan"] summary button')`);
+  expect('点「立即执行」不会折叠卡片', await folds(), planOpen);
+
+  await click(`Array.from(document.querySelectorAll('details[data-fold="plan"] button')).find(b => b.textContent === '全选')`);
+  expect('点「全选」不会折叠卡片', await folds(), planOpen);
+
+  await click(`document.querySelector('details[data-fold="plan"] input[type="time"]')`);
+  await s.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, 3000).catch(() => {});
+  expect('点时间输入框不会折叠卡片', await folds(), planOpen);
 
   await click(`document.querySelector('details[data-fold="jobs"] summary select')`);
   await s.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, 3000).catch(() => {});
-  expect('点店铺下拉不会折叠', await folds(), pickOpen);
+  expect('点店铺下拉不会折叠', await folds(), planOpen);
+
 } catch (err) {
   console.error('✗ 执行出错：', err && err.message ? err.message : err);
   bad += 1;
