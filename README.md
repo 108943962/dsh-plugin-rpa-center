@@ -108,6 +108,23 @@ pnpm add github:108943962/dsh-plugin-rpa-center github:108943962/dsh-plugin-shop
 请求体 `{ source, version, task, job:{id,name,group}, store:{id,name,storeId,platform}, range, ranAt, metrics?, file?{name,size,base64?} }`；
 GET 方式把 `storeId/task/start/end` 拼进 URL。只接受 `http(s)` 地址。
 
+## 定时任务
+
+设置 → 定时任务 → 勾「到点自动跑一遍」，然后选时间、星期、跑哪些作业：
+
+| 项 | 说明 |
+|---|---|
+| 时间 | 每天 `HH:mm`（本地时区）；宿主每 30 秒看一次有没有到点 |
+| 星期 | 点一下切换；默认每天 |
+| 跑哪些 | 空 = 跟着每条作业的「批量」开关；也可以「用当前勾选」固定一份清单 |
+| 错过时间也补跑 | 开着：当天任意时刻启动都会补一次；关掉：只在到点后 1 小时内跑 |
+
+状态写在 `~/.dsh/rpa-center/schedule-state.json`（`lastRunDate / lastRunAt / lastResult`），不会因为每天跑而改 `config.json`。
+运行记录里每条会带 `trigger: "schedule"`（手动是 `manual`），面板上能分辨这次是谁触发的。
+
+**前提：到点时 DSH 得开着**（定时器在宿主进程里）。没开也不丢：下次启动如果当天还没跑过，会补跑一次（就是上面那个开关）。
+「立即执行」按钮可以马上按当前清单跑一遍，用来验证配置。
+
 ## 已知边界
 
 - 订单批量导出有 **5 分钟间隔**（站点限制）；5 分钟内重复跑会下载「最近一份」，`extra.reportTime` 里记录它的生成时间
@@ -123,6 +140,7 @@ node tools/run-job.mjs <店铺名> <作业id>            # 不经界面跑一条
 node tools/peek.mjs <url> 'document.title'         # 开临时标签看页面（只读，跑完关掉）
 node tools/smoke.mjs                               # 提交前自检：/state、/config 全打一遍（临时 DSH_HOME）
 node tools/dl-test.mjs                             # 下载捕获回归：同名文件原地覆盖、每次运行独立子目录
+# 定时任务逻辑（到点/已跑/补跑窗口）在 tools/smoke.mjs 里，会真的触发一次 tick
 cd tools/ui-test && pnpm install && pnpm test      # 界面点击检查：把面板真渲染出来，点一遍折叠/批量
 
 ```
