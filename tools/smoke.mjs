@@ -75,6 +75,32 @@ try {
   const run = await call('POST', '/rpa/run', { storeId: 'no-such-store', jobs: [target] });
   check('POST /rpa/run 未知店铺给出明确错误', run.ok === false && /没有这个店铺/.test(run.error || ''), run.error || '');
 
+  // 本地店铺模式（设置里「只用本插件自己的店铺」）
+  const local = await call('POST', '/rpa/config', {
+    source: 'local',
+    platforms: ['pdd'],
+    stores: [{ name: '本地测试店', port: 9411 }],
+    push: { enabled: false, url: '' },
+  });
+  check('POST /rpa/config 保存本地店铺', local.ok === true && local.config.stores.length === 1);
+  const store = local.config.stores[0];
+  check('本地店铺保留 platform（否则一条作业都匹配不上）', store.platform === 'pdd', `platform=${store.platform}`);
+  check('端口按填写保留', store.port === 9411, `port=${store.port}`);
+  check('档案目录自动补全', /rpa-center\/profiles\//.test(store.profileDir || ''), store.profileDir);
+
+  const s3 = await call('GET', '/rpa/state');
+  check('source=local 时 /state 返回这家店', s3.stores.length === 1 && s3.stores[0].name === '本地测试店');
+  check('/state 的 config.stores 是原始本地列表（不是合并结果）', s3.config.stores.length === 1 && s3.config.stores[0].id === store.id);
+
+  const { resolveJobIds } = await import('../lib/runner.mjs');
+  const jobIds = resolveJobIds({ jobs: {} }, { platform: 'pdd' }, null);
+  check('本地店铺能匹配到作业', jobIds.length > 0, `${jobIds.length} 条`);
+
+  // 多店铺端口不撞
+  const many = await call('POST', '/rpa/config', { source: 'local', stores: [{ name: 'A' }, { name: 'B' }, { name: 'C' }], push: { enabled: false, url: '' } });
+  const ports = many.config.stores.map((x) => x.port);
+  check('多家店铺自动分配不重复端口', new Set(ports).size === ports.length, ports.join(','));
+
   // 坏 URL 不该被收进配置（只允许 http/https）
   const badPush = await call('POST', '/rpa/config', { pushes: {}, push: { enabled: true, url: 'file:///etc/passwd' } });
   check('file:// 推送地址被拒收', badPush.config.push.url === '');
