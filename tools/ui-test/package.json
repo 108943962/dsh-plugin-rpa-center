@@ -1,0 +1,16 @@
+{
+  "name": "rpa-center-ui-test",
+  "private": true,
+  "type": "module",
+  "description": "把 lib/client.js 真的用 React 渲染出来，点一遍折叠/批量，检查有没有「点一下整块收起来」这类问题",
+  "scripts": {
+    "state": "node gen-state.mjs",
+    "build": "esbuild entry.mjs --bundle --format=iife --loader:.json=json --outfile=bundle.js --log-level=warning",
+    "test": "node gen-state.mjs && npm run build && node run.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "esbuild": "^0.21.5"
+  }
+}

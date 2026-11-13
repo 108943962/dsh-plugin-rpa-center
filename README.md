@@ -122,6 +122,8 @@ node tools/run-job.mjs --list                      # 列店铺 + 作业
 node tools/run-job.mjs <店铺名> <作业id>            # 不经界面跑一条（同一份代码）
 node tools/peek.mjs <url> 'document.title'         # 开临时标签看页面（只读，跑完关掉）
 node tools/smoke.mjs                               # 提交前自检：/state、/config 全打一遍（临时 DSH_HOME）
+cd tools/ui-test && pnpm install && pnpm test      # 界面点击检查：把面板真渲染出来，点一遍折叠/批量
+
 ```
 
 - 作业登记：`lib/jobs/index.mjs`（加作业只改这里 + 一个 `lib/jobs/*.mjs`，界面自动出现）

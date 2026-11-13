@@ -1,3 +1,7 @@
 node_modules/
 .DS_Store
 *.log
+
+tools/ui-test/node_modules/
+tools/ui-test/bundle.js
+tools/ui-test/state.json
